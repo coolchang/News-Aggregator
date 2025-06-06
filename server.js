@@ -35,13 +35,19 @@ app.use((req, res, next) => {
 // 유틸리티 함수
 const filterArticles = (articles) => {
     return articles.filter(article => {
+        if (!article || !article.title) return false;
+        
         const content = (article.title + ' ' + (article.description || '') + ' ' + (article.content || '')).toLowerCase();
-        return content.includes('digital credential') || 
-               content.includes('digital credentials') || 
-               content.includes('open badge') || 
-               content.includes('open badges') || 
-               content.includes('micro-credential') || 
-               content.includes('micro-credentials');
+        const keywords = [
+            'digital credential',
+            'digital credentials',
+            'open badge',
+            'open badges',
+            'micro-credential',
+            'micro-credentials'
+        ];
+        
+        return keywords.some(keyword => content.includes(keyword));
     });
 };
 
@@ -51,7 +57,9 @@ const fetchNewsFromAPI = async () => {
         throw new Error('NEWS_API_KEY is not set in environment variables');
     }
 
-    const url = `${config.newsApiUrl}?q=${encodeURIComponent(config.searchQuery)}&language=en&sortBy=publishedAt&pageSize=${config.pageSize}`;
+    // 검색어를 더 간단하게 수정
+    const query = 'digital credential OR open badge OR micro-credential';
+    const url = `${config.newsApiUrl}?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=${config.pageSize}`;
     
     console.log('Fetching news from:', url);
     
@@ -59,14 +67,22 @@ const fetchNewsFromAPI = async () => {
         const response = await axios.get(url, {
             headers: {
                 'X-Api-Key': config.newsApiKey,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9'
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Origin': 'https://newsapi.org',
+                'Referer': 'https://newsapi.org/',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            timeout: 10000, // 10초 타임아웃
+            validateStatus: function (status) {
+                return status >= 200 && status < 300; // 2xx 상태 코드만 성공으로 처리
             }
         });
 
-        if (response.status !== 200) {
-            throw new Error(`News API returned status ${response.status}`);
+        if (!response.data || !response.data.articles) {
+            throw new Error('Invalid response from News API');
         }
 
         return response.data;
