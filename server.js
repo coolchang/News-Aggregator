@@ -8,7 +8,11 @@ const path = require('path');
 const config = {
     port: process.env.PORT || 3000,
     gdeltApiUrl: 'https://api.gdeltproject.org/api/v2/doc/doc',
-    searchQuery: '(digital credential) OR (open badge) OR (micro-credential)',
+    searchQueries: [
+        'digital credential',
+        'open badge',
+        'micro-credential'
+    ],
     pageSize: 100,
     requestDelay: 2000
 };
@@ -37,48 +41,61 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GDELT API 호출 함수
 const fetchNewsFromGDELT = async () => {
-    const url = `${config.gdeltApiUrl}?query=${encodeURIComponent(config.searchQuery)}&mode=artlist&format=json&maxrecords=${config.pageSize}`;
+    let allArticles = [];
     
-    console.log('Fetching news from GDELT:', url);
-    
-    try {
-        // 요청 전 딜레이
-        await delay(config.requestDelay);
-
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json'
-            },
-            timeout: 10000
-        });
-
-        if (!response.data || !response.data.articles) {
-            throw new Error('Invalid response from GDELT API');
-        }
-
-        // GDELT 응답을 우리 형식으로 변환
-        const articles = response.data.articles.map(article => ({
-            title: article.title,
-            description: article.seo_description || article.description,
-            url: article.url,
-            urlToImage: article.image,
-            publishedAt: article.seo_date_published || article.date_published,
-            source: {
-                name: article.domain
-            }
-        }));
-
-        return { articles };
-    } catch (error) {
-        console.error('GDELT API Error:', {
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data
-        });
+    for (const query of config.searchQueries) {
+        const url = `${config.gdeltApiUrl}?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=${config.pageSize}`;
         
-        throw error;
+        console.log('Fetching news from GDELT:', url);
+        
+        try {
+            // 요청 전 딜레이
+            await delay(config.requestDelay);
+
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json'
+                },
+                timeout: 10000
+            });
+
+            if (!response.data || !response.data.articles) {
+                console.warn(`Invalid response for query "${query}"`);
+                continue;
+            }
+
+            // GDELT 응답을 우리 형식으로 변환
+            const articles = response.data.articles.map(article => ({
+                title: article.title,
+                description: article.seo_description || article.description,
+                url: article.url,
+                urlToImage: article.image,
+                publishedAt: article.seo_date_published || article.date_published,
+                source: {
+                    name: article.domain
+                }
+            }));
+
+            allArticles = [...allArticles, ...articles];
+        } catch (error) {
+            console.error(`GDELT API Error for query "${query}":`, {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+            });
+            continue;
+        }
     }
+
+    if (allArticles.length === 0) {
+        throw new Error('No articles found from any query');
+    }
+
+    // 중복 제거
+    const uniqueArticles = Array.from(new Map(allArticles.map(article => [article.url, article])).values());
+
+    return { articles: uniqueArticles };
 };
 
 // 필터링 함수
