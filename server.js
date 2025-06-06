@@ -61,32 +61,51 @@ const fetchNewsFromGDELT = async () => {
             });
 
             if (!response.data || !response.data.articles) {
-                console.warn(`Invalid response for query "${query}"`);
+                console.warn(`Invalid response for query "${query}":`, response.data);
                 continue;
             }
 
+            console.log(`Raw articles count for "${query}": ${response.data.articles.length}`);
+
             // GDELT 응답을 우리 형식으로 변환
             const articles = response.data.articles.map(article => ({
-                title: article.title,
-                description: article.seo_description || article.description,
-                url: article.url,
-                urlToImage: article.image,
-                publishedAt: article.seo_date_published || article.date_published,
+                title: article.title || '',
+                description: article.seo_description || article.description || '',
+                url: article.url || '',
+                urlToImage: article.image || '',
+                publishedAt: article.seo_date_published || article.date_published || '',
                 source: {
-                    name: article.domain
+                    name: article.domain || 'Unknown'
                 }
             }));
 
-            allArticles = [...allArticles, ...articles];
+            // 필수 필드가 있는지 확인
+            const validArticles = articles.filter(article => {
+                const isValid = article.title && article.url;
+                if (!isValid) {
+                    console.log('Filtered out article:', {
+                        title: article.title,
+                        url: article.url,
+                        reason: !article.title ? 'Missing title' : 'Missing URL'
+                    });
+                }
+                return isValid;
+            });
+
+            console.log(`Valid articles count for "${query}": ${validArticles.length}`);
+            allArticles = [...allArticles, ...validArticles];
         } catch (error) {
             console.error(`GDELT API Error for query "${query}":`, {
                 status: error.response?.status,
                 statusText: error.response?.statusText,
-                data: error.response?.data
+                data: error.response?.data,
+                message: error.message
             });
             continue;
         }
     }
+
+    console.log(`Total articles before deduplication: ${allArticles.length}`);
 
     if (allArticles.length === 0) {
         throw new Error('No articles found from any query');
@@ -94,8 +113,16 @@ const fetchNewsFromGDELT = async () => {
 
     // 중복 제거
     const uniqueArticles = Array.from(new Map(allArticles.map(article => [article.url, article])).values());
+    console.log(`Total articles after deduplication: ${uniqueArticles.length}`);
 
-    return { articles: uniqueArticles };
+    // 최신순으로 정렬
+    const sortedArticles = uniqueArticles.sort((a, b) => {
+        const dateA = new Date(a.publishedAt || 0);
+        const dateB = new Date(b.publishedAt || 0);
+        return dateB - dateA;
+    });
+
+    return { articles: sortedArticles };
 };
 
 // 필터링 함수
