@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Aggregator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>News Aggregator</h1>
+            <p class="subtitle">Latest news about digital credentials and open badges</p>
+        </header>
+
+        <main>
+            <section class="news-section">
+                <div class="news-header">
+                    <h2>Latest News</h2>
+                    <button id="refresh-button" onclick="fetchAndDisplayNews()">Refresh News</button>
+                </div>
+                <div id="news-container" class="news-container">
+                    <div class="loading">Loading news...</div>
+                </div>
+            </section>
+
+            <section class="summary-section">
+                <h2>AI Summary</h2>
+                <div id="summary-container" class="summary-container">
+                    <div class="loading">Generating summary...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const newsContainer = document.getElementById('news-container');
+        const summaryContainer = document.getElementById('summary-container');
+
+        async function fetchAndDisplayNews() {
+            try {
+                newsContainer.innerHTML = '<div class="loading">Loading news...</div>';
+                summaryContainer.innerHTML = '<div class="loading">Generating summary...</div>';
+
+                const response = await fetch('http://localhost:3000/api/news');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (!data.articles || data.articles.length === 0) {
+                    newsContainer.innerHTML = '<p class="no-articles">No articles found.</p>';
+                    summaryContainer.innerHTML = '<p class="no-summary">No summary available.</p>';
+                    return;
+                }
+
+                // 뉴스 표시
+                newsContainer.innerHTML = data.articles.map(article => `
+                    <div class="article-card">
+                        <h3><a href="${article.url}" target="_blank" rel="noopener noreferrer">${article.title}</a></h3>
+                        <p class="article-meta">
+                            <span class="source">${article.source?.name || 'Unknown Source'}</span> • 
+                            <span class="date">${new Date(article.publishedAt).toLocaleDateString()}</span>
+                        </p>
+                        <p class="article-content">${article.description || article.content || 'No content available'}</p>
+                    </div>
+                `).join('');
+
+                // 요약 표시
+                if (data.analysis && data.analysis.summary) {
+                    summaryContainer.innerHTML = `
+                        <div class="summary-content">
+                            <p>${data.analysis.summary}</p>
+                        </div>
+                    `;
+                } else {
+                    summaryContainer.innerHTML = '<p class="no-summary">No summary available.</p>';
+                }
+            } catch (error) {
+                console.error('Error details:', error);
+                newsContainer.innerHTML = `<p class="error">뉴스를 불러오는 중에 ❗️ 오류가 발생했습니다: ${error.message}</p>`;
+                summaryContainer.innerHTML = '<p class="no-summary">No summary available.</p>';
+            }
+        }
+
+        // 페이지 로드 시 뉴스 가져오기
+        window.addEventListener("DOMContentLoaded", fetchAndDisplayNews);
+    </script>
+</body>
+</html>
