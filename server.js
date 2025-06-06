@@ -50,7 +50,11 @@ app.get('/api/news', async (req, res) => {
     
     console.log('URL:', url);
     console.log('Query:', query);
-    console.log('API Key length:', process.env.NEWS_API_KEY.length);
+    console.log('API Key length:', process.env.NEWS_API_KEY ? process.env.NEWS_API_KEY.length : 'Missing');
+
+    if (!process.env.NEWS_API_KEY) {
+      throw new Error('NEWS_API_KEY is not set in environment variables');
+    }
 
     const response = await axios.get(url, {
       headers: {
@@ -82,21 +86,35 @@ app.get('/api/news', async (req, res) => {
     // 기사 저장 및 AI 분석
     const savedArticles = await Promise.all(
       filteredArticles.map(async (article) => {
-        const savedArticle = await dbService.saveArticle(article);
-        return savedArticle;
+        try {
+          const savedArticle = await dbService.saveArticle(article);
+          return savedArticle;
+        } catch (error) {
+          console.error('Error saving article:', error);
+          return article; // 저장 실패시 원본 기사 반환
+        }
       })
     );
 
     // AI 분석 수행
-    const analysis = await llmService.analyzeNews(savedArticles);
+    let analysis = { summary: 'No analysis available' };
+    try {
+      analysis = await llmService.analyzeNews(savedArticles);
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+    }
 
     // 일일 요약 저장
-    await dbService.saveDailySummary({
-      date: new Date().toISOString().split('T')[0],
-      article_count: savedArticles.length,
-      source_count: new Set(savedArticles.map(a => a.source_name)).size,
-      summary: analysis.summary
-    });
+    try {
+      await dbService.saveDailySummary({
+        date: new Date().toISOString().split('T')[0],
+        article_count: savedArticles.length,
+        source_count: new Set(savedArticles.map(a => a.source_name)).size,
+        summary: analysis.summary
+      });
+    } catch (error) {
+      console.error('Error saving daily summary:', error);
+    }
 
     res.json({
       articles: savedArticles,
@@ -104,7 +122,11 @@ app.get('/api/news', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching news:', error);
-    res.status(500).json({ error: 'Failed to fetch news' });
+    res.status(500).json({ 
+      error: 'Failed to fetch news',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
