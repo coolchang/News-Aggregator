@@ -1,8 +1,9 @@
-# Environment variables
-.env
-
 # Dependencies
 node_modules/
+venv/
+
+# Environment variables
+.env
 
 # Database
 *.db
@@ -10,6 +11,7 @@ node_modules/
 *.sqlite3
 
 # Logs
+logs/
 *.log
 npm-debug.log*
 
