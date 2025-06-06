@@ -117,6 +117,10 @@ app.use((req, res, next) => {
 });
 
 // 라우트 핸들러
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.get('/api/news', async (req, res) => {
     try {
         const allArticles = await newsProcessor.fetchAllNews();
