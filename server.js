@@ -8,7 +8,7 @@ const path = require('path');
 const config = {
     port: process.env.PORT || 3000,
     gdeltApiUrl: 'https://api.gdeltproject.org/api/v2/doc/doc',
-    searchQuery: 'digital credential OR open badge OR micro-credential',
+    searchQuery: '(digital credential) OR (open badge) OR (micro-credential)',
     pageSize: 100,
     requestDelay: 2000
 };
