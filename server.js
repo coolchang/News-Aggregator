@@ -55,13 +55,34 @@ const fetchNewsFromAPI = async () => {
     
     console.log('Fetching news from:', url);
     
-    const response = await axios.get(url, {
-        headers: {
-            'X-Api-Key': config.newsApiKey
-        }
-    });
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'X-Api-Key': config.newsApiKey,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
 
-    return response.data;
+        if (response.status !== 200) {
+            throw new Error(`News API returned status ${response.status}`);
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('News API Error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+        });
+        
+        if (error.response?.status === 403) {
+            throw new Error('Access to News API was blocked. Please try again later.');
+        }
+        
+        throw error;
+    }
 };
 
 // 라우트 핸들러
@@ -83,10 +104,15 @@ app.get('/api/news', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching news:', error);
-        res.status(500).json({ 
+        
+        // 클라이언트에 더 자세한 에러 메시지 전달
+        const errorResponse = {
             error: 'Failed to fetch news',
-            details: error.message
-        });
+            details: error.message,
+            status: error.response?.status || 500
+        };
+
+        res.status(error.response?.status || 500).json(errorResponse);
     }
 });
 
