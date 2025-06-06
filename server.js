@@ -17,41 +17,17 @@ const config = {
     requestDelay: 2000
 };
 
-// 앱 초기화
-const app = express();
+// 유틸리티 함수
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// 미들웨어 설정
-app.use(cors({
-    origin: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
-
-// 로깅 미들웨어
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
-});
-
-// 딜레이 함수
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// GDELT API 호출 함수
-const fetchNewsFromGDELT = async () => {
-    let allArticles = [];
-    
-    for (const query of config.searchQueries) {
+// GDELT API 관련 함수들
+const gdeltApi = {
+    async fetchArticles(query) {
         const url = `${config.gdeltApiUrl}?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=${config.pageSize}`;
-        
         console.log('Fetching news from GDELT:', url);
-        
-        try {
-            // 요청 전 딜레이
-            await delay(config.requestDelay);
 
+        try {
+            await delay(config.requestDelay);
             const response = await axios.get(url, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -60,40 +36,12 @@ const fetchNewsFromGDELT = async () => {
                 timeout: 10000
             });
 
-            if (!response.data || !response.data.articles) {
+            if (!response.data?.articles) {
                 console.warn(`Invalid response for query "${query}":`, response.data);
-                continue;
+                return [];
             }
 
-            console.log(`Raw articles count for "${query}": ${response.data.articles.length}`);
-
-            // GDELT 응답을 우리 형식으로 변환
-            const articles = response.data.articles.map(article => ({
-                title: article.title || '',
-                description: article.seo_description || article.description || '',
-                url: article.url || '',
-                urlToImage: article.image || '',
-                publishedAt: article.seo_date_published || article.date_published || '',
-                source: {
-                    name: article.domain || 'Unknown'
-                }
-            }));
-
-            // 필수 필드가 있는지 확인
-            const validArticles = articles.filter(article => {
-                const isValid = article.title && article.url;
-                if (!isValid) {
-                    console.log('Filtered out article:', {
-                        title: article.title,
-                        url: article.url,
-                        reason: !article.title ? 'Missing title' : 'Missing URL'
-                    });
-                }
-                return isValid;
-            });
-
-            console.log(`Valid articles count for "${query}": ${validArticles.length}`);
-            allArticles = [...allArticles, ...validArticles];
+            return response.data.articles;
         } catch (error) {
             console.error(`GDELT API Error for query "${query}":`, {
                 status: error.response?.status,
@@ -101,76 +49,91 @@ const fetchNewsFromGDELT = async () => {
                 data: error.response?.data,
                 message: error.message
             });
-            continue;
+            return [];
         }
+    },
+
+    transformArticle(article) {
+        return {
+            title: article.title || '',
+            description: article.seo_description || article.description || '',
+            url: article.url || '',
+            urlToImage: article.image || '',
+            publishedAt: article.seo_date_published || article.date_published || '',
+            source: {
+                name: article.domain || 'Unknown'
+            }
+        };
+    },
+
+    isValidArticle(article) {
+        return !!article.url;
     }
-
-    console.log(`Total articles before deduplication: ${allArticles.length}`);
-
-    if (allArticles.length === 0) {
-        throw new Error('No articles found from any query');
-    }
-
-    // 중복 제거
-    const uniqueArticles = Array.from(new Map(allArticles.map(article => [article.url, article])).values());
-    console.log(`Total articles after deduplication: ${uniqueArticles.length}`);
-
-    // 최신순으로 정렬
-    const sortedArticles = uniqueArticles.sort((a, b) => {
-        const dateA = new Date(a.publishedAt || 0);
-        const dateB = new Date(b.publishedAt || 0);
-        return dateB - dateA;
-    });
-
-    return { articles: sortedArticles };
 };
 
-// 필터링 함수
-const filterArticles = (articles) => {
-    return articles.filter(article => {
-        if (!article || !article.title) return false;
-        
-        const content = (article.title + ' ' + (article.description || '')).toLowerCase();
-        const keywords = [
-            'digital credential',
-            'digital credentials',
-            'open badge',
-            'open badges',
-            'micro-credential',
-            'micro-credentials'
-        ];
-        
-        return keywords.some(keyword => content.includes(keyword));
-    });
+// 뉴스 처리 관련 함수들
+const newsProcessor = {
+    async fetchAllNews() {
+        let allArticles = [];
+
+        for (const query of config.searchQueries) {
+            const rawArticles = await gdeltApi.fetchArticles(query);
+            console.log(`Raw articles count for "${query}": ${rawArticles.length}`);
+
+            const validArticles = rawArticles
+                .map(gdeltApi.transformArticle)
+                .filter(gdeltApi.isValidArticle);
+
+            console.log(`Valid articles count for "${query}": ${validArticles.length}`);
+            allArticles = [...allArticles, ...validArticles];
+        }
+
+        return allArticles;
+    },
+
+    removeDuplicates(articles) {
+        return Array.from(new Map(articles.map(article => [article.url, article])).values());
+    },
+
+    sortByDate(articles) {
+        return articles.sort((a, b) => {
+            const dateA = new Date(a.publishedAt || 0);
+            const dateB = new Date(b.publishedAt || 0);
+            return dateB - dateA;
+        });
+    }
 };
 
-// 라우트 핸들러
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+// Express 앱 설정
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 로깅 미들웨어
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
 });
 
+// 라우트 핸들러
 app.get('/api/news', async (req, res) => {
     try {
-        const newsData = await fetchNewsFromGDELT();
-        console.log(`Received ${newsData.articles.length} articles from GDELT`);
+        const allArticles = await newsProcessor.fetchAllNews();
+        console.log(`Total articles before deduplication: ${allArticles.length}`);
 
-        const filteredArticles = filterArticles(newsData.articles);
-        console.log(`Filtered down to ${filteredArticles.length} relevant articles`);
+        if (allArticles.length === 0) {
+            throw new Error('No articles found from any query');
+        }
 
-        res.json({
-            articles: filteredArticles || [],
-            analysis: { summary: 'Analysis temporarily disabled' }
-        });
+        const uniqueArticles = newsProcessor.removeDuplicates(allArticles);
+        console.log(`Total articles after deduplication: ${uniqueArticles.length}`);
+
+        const sortedArticles = newsProcessor.sortByDate(uniqueArticles);
+        res.json({ articles: sortedArticles });
     } catch (error) {
         console.error('Error fetching news:', error);
-        
-        const errorResponse = {
-            error: 'Failed to fetch news',
-            details: error.message,
-            status: error.response?.status || 500
-        };
-
-        res.status(error.response?.status || 500).json(errorResponse);
+        res.status(500).json({ error: error.message });
     }
 });
 
