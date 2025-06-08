@@ -11,7 +11,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // GDELT API 관련 함수들
 const gdeltApi = {
     async fetchArticles(query) {
-        const url = `${config.gdeltApiUrl}?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=${config.pageSize}`;
+        const url = `${config.gdeltApiUrl}?query=${encodeURIComponent(query)}&mode=artlist&format=json&maxrecords=${config.pageSize}&lang=eng`;
         console.log('Fetching news from GDELT:', url);
 
         try {

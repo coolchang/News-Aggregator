@@ -14,6 +14,9 @@
         <header>
             <h1>News Aggregator</h1>
             <p class="subtitle">Latest news about digital credentials and open badges</p>
+            <div class="api-info">
+                <span class="api-badge" id="api-source">API Source: Loading...</span>
+            </div>
         </header>
 
         <main>
@@ -46,6 +49,20 @@
     <script>
         const newsContainer = document.getElementById('news-container');
         const summaryContainer = document.getElementById('summary-container');
+        const apiSource = document.getElementById('api-source');
+
+        // API 소스 확인
+        async function checkApiSource() {
+            try {
+                const response = await fetch('/api/source');
+                const data = await response.json();
+                apiSource.textContent = `API Source: ${data.source}`;
+                apiSource.className = `api-badge ${data.source.toLowerCase()}`;
+            } catch (error) {
+                console.error('Error checking API source:', error);
+                apiSource.textContent = 'API Source: Unknown';
+            }
+        }
 
         async function fetchAndDisplayNews() {
             try {
@@ -93,8 +110,11 @@
             }
         }
 
-        // 페이지 로드 시 뉴스 가져오기
-        window.addEventListener("DOMContentLoaded", fetchAndDisplayNews);
+        // 페이지 로드 시 실행
+        window.addEventListener("DOMContentLoaded", () => {
+            checkApiSource();
+            fetchAndDisplayNews();
+        });
     </script>
 </body>
 </html>

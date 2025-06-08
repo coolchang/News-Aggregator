@@ -1,26 +1,27 @@
 # News Aggregator
 
-A web application that aggregates and summarizes news articles about digital credentials and open badges.
+A news aggregation service that collects and displays news articles from GDELT API, focusing on digital credentials, blockchain, and related topics.
 
 ## Features
 
-- Real-time news aggregation from various sources
-- AI-powered article summarization using Hugging Face
-- Historical article viewing
-- Responsive and modern UI
+- Real-time news collection from GDELT API
+- Support for both English and Korean news articles
+- Relevance-based article sorting
+- Deduplication of articles
+- Date-based sorting
+- RESTful API endpoints
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- News API key (from [NewsAPI](https://newsapi.org))
-- Hugging Face API key (from [Hugging Face](https://huggingface.co))
+- npm (Node Package Manager)
 
-## Setup
+## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/coolchang/News-Aggregator.git
-cd News-Aggregator
+git clone https://github.com/yourusername/news-aggregator.git
+cd news-aggregator
 ```
 
 2. Install dependencies:
@@ -28,28 +29,40 @@ cd News-Aggregator
 npm install
 ```
 
-3. Create a `.env` file in the root directory with your API keys:
-```
-NEWS_API_KEY=your_news_api_key
-HUGGINGFACE_API_KEY=your_huggingface_api_key
+3. Create a `.env` file in the root directory and add your configuration:
+```env
+PORT=3001
+NODE_ENV=development
 ```
 
-4. Start the server:
+## Usage
+
+Start the development server:
 ```bash
-node server.js
+npm run dev:gdelt
 ```
 
-5. Open your browser and navigate to `http://localhost:3000`
+The server will start at `http://localhost:3001`
 
-## Technologies Used
+## API Endpoints
 
-- Node.js
-- Express.js
-- SQLite
-- NewsAPI
-- Hugging Face API
-- HTML/CSS/JavaScript
+- `GET /api/news`: Get all news articles
+- `GET /api/source`: Get API source information
+
+## Project Structure
+
+- `dev-server-gdelt.js`: Main server file
+- `index.html`: Frontend interface
+- `package.json`: Project dependencies and scripts
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-MIT License 
+This project is licensed under the MIT License - see the LICENSE file for details. 

@@ -239,4 +239,30 @@ header h1 {
         justify-content: center;
     }
 }
+
+.api-info {
+    margin-top: 1rem;
+}
+
+.api-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+}
+
+.api-badge.newsapi {
+    background: #f0f9ff;
+    border-color: #bae6fd;
+    color: #0369a1;
+}
+
+.api-badge.gdelt {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
   

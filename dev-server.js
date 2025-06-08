@@ -186,6 +186,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/api/source', (req, res) => {
+    res.json({ source: 'NewsAPI' });
+});
+
 app.get('/api/news', async (req, res) => {
     try {
         const allArticles = await newsProcessor.fetchAllNews();
